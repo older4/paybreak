@@ -4,7 +4,7 @@
 *
 * Hook and trampoline into the MS Crypto API - Replaces Real_Crypt* with Fake_Crypt*
 * Record calls, and trampoline back to the real functions.
-* Recorded calls are logged in `C:\CryptoHookLog.dll`
+* Recorded calls are logged in `C:\Users\Public\CryptoHookLog.dl"`
 *
 ***************************************************************************************************/
 
@@ -17,11 +17,12 @@
 #include <tchar.h>
 #include "antiransom.h"
 
-// for cast char code
+#include "spdlog/spdlog.h"
+#include "spdlog/async.h"
+#include "spdlog/sinks/basic_file_sink.h"
+
 #include <atlconv.h>
 #include <atlstr.h>
-#include < crtdbg.h >
-
 
 #pragma comment (lib, "advapi32")
 #pragma comment (lib, "user32")
@@ -53,139 +54,73 @@ char NEEDLE_END = 0xF4;
 BOOL WINAPI Fake_CryptDecrypt(HCRYPTKEY hKey, HCRYPTHASH hHash, BOOL Final, DWORD dwFlags, BYTE* pbData,
   DWORD* pdwDataLen) {
     OutputDebugString("Fake_CryptDecrypt loaded");
-    char buf[512];
-    sprintf_s(buf, "\t HCRYPTKEY hKey = %x\n", hKey);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTHASH hHash = %x\n", hHash);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t BOOL Final = %x\n", Final);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t BYTE* pbData = %x, *pbdata = %s\n", pbData, "BROKEN");
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD* pdwDataLen = %x, *pdwDataLen = ", pdwDataLen);
-    OutputDebugString(buf);
-    if (pdwDataLen != NULL) {
-        sprintf_s(buf, "%x", *pdwDataLen);
-        OutputDebugString(buf);
-    } else {
-        OutputDebugString("NULL");
-    }
-    OutputDebugString("\n");
+    // spdlog::debug("Fake_CryptDecrypt loaded");
+    // spdlog::debug("\t HCRYPTKEY hKey = %x", hKey);
+    // spdlog::debug("\t HCRYPTHASH hHash = %x", hHash);
+    // spdlog::debug("\t BOOL Final = %x", Final);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
+    // spdlog::debug("\t BYTE* pbData = %x, *pbdata = %s", pbData, "BROKEN");
+    // spdlog::debug("\t DWORD* pdwDataLen = %x, *pdwDataLen = ", pdwDataLen);
 
-    //fclose(fd);
+    if (pdwDataLen != NULL) {
+        // spdlog::debug("%x", *pdwDataLen);
+    } else {
+        // spdlog::debug("NUL");
+    }
+    // spdlog::debug("");
     return Real_CryptDecrypt(hKey, hHash, Final, dwFlags, pbData, pdwDataLen);
 }
 
 BOOL WINAPI Fake_CryptSetKeyParam(HCRYPTKEY hKey, DWORD dwParam, BYTE* pbData, DWORD dwFlags) {
     OutputDebugString("Fake_CryptSetKeyParam loaded");
-    char buf[512];
-    sprintf_s(buf,"\t HCRYPTKEY hKey = %x\n", hKey);
-    OutputDebugString(buf);
-    sprintf_s(buf,"\t DWORD dwParam = %x\n", dwParam);
-    OutputDebugString(buf);
-    sprintf_s(buf,"\t BYTE* pbData = %x, *pbData = ", pbData);
-    OutputDebugString(buf);
+    std::string mytime = CurrentTime();
+
+    // spdlog::debug("[CryptSetKeyParam] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTKEY hKey = %x", hKey);
+    // spdlog::debug("\t DWORD dwParam = %x", dwParam);
+    // spdlog::debug("\t BYTE* pbData = %x, *pbData = ", pbData);
     if (pbData != NULL) {
-        sprintf_s(buf,"%x", "This requires extra work, as pbData depends on the value of dwParam");
-        OutputDebugString(buf);
+        // spdlog::debug("%x", "This requires extra work, as pbData depends on the value of dwParam");
     } else {
-        sprintf_s(buf,"NULL");
-        OutputDebugString(buf);
+        // spdlog::debug("NUL");
     }
-    sprintf_s(buf,"\n");
-    OutputDebugString(buf);
-    sprintf_s(buf,"\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
 
     // Print out some key params
     DWORD dwCount;
     BYTE pbData2[16];
     CryptGetKeyParam(hKey, KP_IV, NULL, &dwCount, 0); // Get size of KP_IV
     CryptGetKeyParam(hKey, KP_IV, pbData2, &dwCount, 0); // Get KP_IV data
-    sprintf_s(buf,"KP_IV =  ");
-    OutputDebugString(buf);
+    // spdlog::debug("KP_IV =  ");
     for (int i = 0 ; i < dwCount ; i++) {
-        sprintf_s(buf,"%02x ",pbData2[i]);
-        OutputDebugString(buf);
+        // spdlog::debug("%02x ",pbData2[i]);
     }
 
-    //fclose(fd);
     return Real_CryptSetKeyParam(hKey, dwParam, pbData, dwFlags);
 
 }
 
-// BOOL WINAPI Fake_CryptDestroyKey(HCRYPTKEY hKey) {
-//     //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
-//     std::string mytime = CurrentTime();
-
-//     //fprintf(fd, "[CryptDestroyKey] %s\n", mytime.c_str());
-
-//     // TODO(eugenek): This is broken, for some reason dwCount doesn't get updated correctly.
-//     // DWORD dwCount;
-//     // BYTE pbData2[16];
-//     // CryptGetKeyParam(hKey, KP_IV, NULL, &dwCount, 0); // Get size of KP_IV    
-//     // CryptGetKeyParam(hKey, KP_IV, pbData2, &dwCount, 0); // Get KP_IV data
-//     // //fprintf(fd, "KP_IV =  ");
-//     // for (int i = 0 ; i < dwCount ; i++) {
-//     //     //fprintf(fd, "%02x ",pbData2[i]);
-//     // }
-
-//     if (recursive == FALSE) {
-//         recursive = TRUE;
-
-//         Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, NULL, &g_dwKeyBlobLen_Exfil);
-//         //fprintf(fd, "\t ExfilKeyLen = %d\n", g_dwKeyBlobLen_Exfil);
-        
-//         g_pbKeyBlob_Exfil = (BYTE*)malloc(g_dwKeyBlobLen_Exfil);
-    
-//         // Get the export blob
-//         if (!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, g_pbKeyBlob_Exfil, &g_dwKeyBlobLen_Exfil)){
-//             MyHandleError(TEXT("[FAIL] Exfil key data failed \n"), GetLastError());
-//             //fprintf(fd, "[FAIL] no-alloca Exfil key data failed \n");
-//         }
-    
-//         //fprintf(fd, "\t no-alloca ExfilKeyData = ");
-//         for (int i = 0 ; i < g_dwKeyBlobLen_Exfil ; i++) {
-//            //fprintf(fd, "%02x", g_pbKeyBlob_Exfil[i]);
-//         }
-//         //fprintf(fd, "\n");
-    
-//         recursive = FALSE;
-//     }
-
-//     //fclose(fd);
-//     return Real_CryptDestroyKey(hKey);
-// }
-
 
 BOOL WINAPI Fake_CryptEncrypt(HCRYPTKEY hKey, HCRYPTHASH hHash, BOOL Final, DWORD dwFlags, BYTE* pbData,
   DWORD* pdwDataLen, DWORD dwBufLen) {
-    char buf[500];
-    OutputDebugString("Fake_CryptEncrypt");
-    sprintf_s(buf, "\t HCRYPTKEY hKey = %x\n", hKey);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTHASH hHash = %x\n", hHash);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t BOOL Final = %x\n", Final);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t BYTE* pbData = %x, *pbdata = %s\n", pbData, "BROKEN");
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD* pdwDataLen = %x, *pdwDataLen = %s\n", pdwDataLen, "BROKEN");
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwBufLen = %x\n", dwBufLen);
-    OutputDebugString(buf);
+    OutputDebugString("Fake_CryptEncrypt loaded");
+
+    // spdlog::debug("[CryptEncrypt] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTKEY hKey = %x", hKey);
+    // spdlog::debug("\t HCRYPTHASH hHash = %x", hHash);
+    // spdlog::debug("\t BOOL Final = %x", Final);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
+    // spdlog::debug("\t BYTE* pbData = %x, *pbdata = %s", pbData, "BROKEN");
+    // spdlog::debug("\t DWORD* pdwDataLen = %x, *pdwDataLen = %s", pdwDataLen, "BROKEN");
+    // spdlog::debug("\t DWORD dwBufLen = %x", dwBufLen);
+
     DWORD dwCount;
     BYTE pbData2[16];
     CryptGetKeyParam(hKey, KP_IV, NULL, &dwCount, 0); // Get size of KP_IV
     CryptGetKeyParam(hKey, KP_IV, pbData2, &dwCount, 0); // Get KP_IV data
-    OutputDebugString("KP_IV =  ");
+    // spdlog::debug("KP_IV =  ");
     for (int i = 0 ; i < dwCount ; i++) {
-        sprintf_s(buf, "%02x ",pbData2[i]);
-        OutputDebugString(buf);
+        // spdlog::debug("%02x ",pbData2[i]);
     }
 
     if (recursive == FALSE) {
@@ -193,29 +128,23 @@ BOOL WINAPI Fake_CryptEncrypt(HCRYPTKEY hKey, HCRYPTHASH hHash, BOOL Final, DWOR
         if (pbData == NULL) {
             // CryptEncrypt being used to get allocation size for cipher data
             if(!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, NULL, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] Exfil key length failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] Exfil key length failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] Exfil key length failed "), GetLastError());
+                // spdlog::debug("[FAIL] Exfil key length failed ");
             }
-            sprintf_s(buf, "\t ExfilKeyLen = %d\n", g_dwKeyBlobLen_Exfil);
-            OutputDebugString(buf);
+            // spdlog::debug("\t ExfilKeyLen = %d", g_dwKeyBlobLen_Exfil);
         }
         else if (g_dwKeyBlobLen_Exfil != NULL) {
             // CryptEncrypt is encrypting data, and was used to get the allocation size
             g_pbKeyBlob_Exfil = (BYTE*)malloc(g_dwKeyBlobLen_Exfil);
             if (!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, g_pbKeyBlob_Exfil, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] Exfil key length failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] Exfil key data failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] Exfil key length failed "), GetLastError());
+                // spdlog::debug("[FAIL] Exfil key data failed ");
             }
-            sprintf_s(buf, "\t ExfilKeyData = ");
-            OutputDebugString(buf);
+            // spdlog::debug("\t ExfilKeyData = ");
             for (int i = 0 ; i < g_dwKeyBlobLen_Exfil ; i++) {
-                sprintf_s(buf, "%02x",g_pbKeyBlob_Exfil[i]);
-                OutputDebugString(buf);
+                // spdlog::debug("%02x",g_pbKeyBlob_Exfil[i]);
             }
-            sprintf_s(buf, "\n");
-            OutputDebugString(buf);
+            // spdlog::debug("");
         }
         else {
             // CryptEncrypt is encrypting data, and was NOT called to get the alloca size
@@ -223,34 +152,28 @@ BOOL WINAPI Fake_CryptEncrypt(HCRYPTKEY hKey, HCRYPTHASH hHash, BOOL Final, DWOR
 
             // Get the size to allocate for the export blob
             if(!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, NULL, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] no-alloca Exfil key length failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] no-alloca Exfil key length failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] no-alloca Exfil key length failed "), GetLastError());
+                // spdlog::debug("[FAIL] no-alloca Exfil key length failed ");
             }
 
             g_pbKeyBlob_Exfil = (BYTE*)malloc(g_dwKeyBlobLen_Exfil);
 
             // Get the export blob
             if (!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, g_pbKeyBlob_Exfil, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] Exfil key data failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] no-alloca Exfil key data failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] Exfil key data failed "), GetLastError());
+                // spdlog::debug("[FAIL] no-alloca Exfil key data failed ");
             }
 
             // Print the export blob
-            sprintf_s(buf, "\t no-alloca ExfilKeyData = ");
-            OutputDebugString(buf);
+            // spdlog::debug("\t no-alloca ExfilKeyData = ");
             for (int i = 0 ; i < g_dwKeyBlobLen_Exfil ; i++) {
-                sprintf_s(buf, "%02x", g_pbKeyBlob_Exfil[i]);
-                OutputDebugString(buf);
+                // spdlog::debug("%02x", g_pbKeyBlob_Exfil[i]);
             }
-            sprintf_s(buf, "\n");
-            OutputDebugString(buf);
+            // spdlog::debug("");
 
             //free(pbKeyBlob);
         }
-        //fclose(fd);
-        recursive = FALSE;
+            recursive = FALSE;
     }
 
     return Real_CryptEncrypt(hKey, hHash, Final, dwFlags, pbData, pdwDataLen, dwBufLen);
@@ -264,188 +187,147 @@ BOOL WINAPI Fake_CryptAcquireContext(HCRYPTPROV* phProv, LPCTSTR pszContainer, L
     sprintf_s(buf, "HCRYPTPROV* phProv %x, LPCTSTR pszContainer %s, LPCTSTR pszProvider %s, DWORD dwProvType %x,",
         phProv, pszContainer, pszProvider, dwProvType);
     OutputDebugString(buf);
+    // spdlog::debug("[CryptAcquireContext] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTPROV* phProv = %x, *phProv = %s", phProv, "OUTPUT, so probably can't deref NUL");
+    // spdlog::debug("\t LPCTSTR pszContainer = %s", pszContainer);
+    // spdlog::debug("\t LPCTSTR pszProvider = %s", pszProvider);
+    // spdlog::debug("\t DWORD dwProvType = %x", dwProvType);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
 
-    //fclose(fd);
     return Real_CryptAcquireContext(phProv, pszContainer, pszProvider, dwProvType, dwFlags);
 }
 
 BOOL WINAPI Fake_CryptCreateHash(HCRYPTPROV hProv, ALG_ID Algid, HCRYPTKEY hKey, DWORD dwFlags,
   HCRYPTHASH* phHash) {
     OutputDebugString("Fake_CryptCreateHash loaded");
-    char buf[512];
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTPROV hProv = %x\n", hProv);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t ALG_ID Algid = %x\n", Algid);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTKEY hKey = %x\n", hKey);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTHASH* phHash = %x, *phHash = %s\n", phHash, "OUTPUT, so probably can't deref NULL");
-    OutputDebugString(buf);
 
-    //fclose(fd);
+    // spdlog::debug("[CryptCreateHash] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTPROV hProv = %x", hProv);
+    // spdlog::debug("\t ALG_ID Algid = %x", Algid);
+    // spdlog::debug("\t HCRYPTKEY hKey = %x", hKey);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
+    // spdlog::debug("\t HCRYPTHASH* phHash = %x, *phHash = %s", phHash, "OUTPUT, so probably can't deref NUL");
+
     return Real_CryptCreateHash(hProv, Algid, hKey,dwFlags, phHash);
 }
 
 BOOL WINAPI Fake_CryptHashData(HCRYPTHASH hHash, BYTE* pbData, DWORD dwDataLen, DWORD dwFlags) {
-    //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
     OutputDebugString("Fake_CryptHashData loaded");
-    char buf[512];
-    sprintf_s(buf, "\t HCRYPTHASH hHash = %x\n", hHash);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t BYTE* pbData = %x, *pbData = ", pbData);
-    OutputDebugString(buf);
+
+    // spdlog::debug("[CryptHashData] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTHASH hHash = %x", hHash);
+    // spdlog::debug("\t BYTE* pbData = %x, *pbData = ", pbData);
     if (pbData != NULL) {
         for (int i = 0; i < dwDataLen; i++) {
-            sprintf_s(buf, "%x", pbData[i]);
-            OutputDebugString(buf);
+            // spdlog::debug("%x", pbData[i]);
         }
     } else {
-        sprintf_s(buf, "NULL");
-        OutputDebugString(buf);
+        // spdlog::debug("NUL");
     }
-    sprintf_s(buf, "\n");
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwDataLen = %x\n", dwDataLen);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
+    // spdlog::debug("");
+    // spdlog::debug("\t DWORD dwDataLen = %x", dwDataLen);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
 
-    //fclose(fd);
     return Real_CryptHashData(hHash, pbData, dwDataLen, dwFlags);
 }
 
 BOOL WINAPI Fake_CryptDeriveKey(HCRYPTPROV hProv, ALG_ID Algid, HCRYPTHASH hBaseData, DWORD dwFlags,
   HCRYPTKEY* phKey) {
     OutputDebugString("Fake_CryptDeriveKey loaded");
-    char buf[512];
-    sprintf_s(buf, "\t HCRYPTPROV hProv = %x\n", hProv);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t ALG_ID Algid = %x\n", Algid);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTHASH hBaseData = %x\n", hBaseData);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTKEY* phKey = %x, *phKey = %s\n", phKey, "Cannot deref the key directly");
-    OutputDebugString(buf);
 
-    //fclose(fd);
+    // spdlog::debug("[CryptDeriveKey] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTPROV hProv = %x", hProv);
+    // spdlog::debug("\t ALG_ID Algid = %x", Algid);
+    // spdlog::debug("\t HCRYPTHASH hBaseData = %x", hBaseData);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
+    // spdlog::debug("\t HCRYPTKEY* phKey = %x, *phKey = %s", phKey, "Cannot deref the key directly");
+
     return Real_CryptDeriveKey(hProv, Algid, hBaseData, dwFlags | CRYPT_EXPORTABLE, phKey);
 }
 
 BOOL WINAPI Fake_CryptGenKey(HCRYPTPROV hProv, ALG_ID Algid, DWORD dwFlags, HCRYPTKEY* phKey) {
     OutputDebugString("Fake_CryptGenKey loaded");
-    char buf[512];
-    sprintf_s(buf, "\t HCRYPTPROV hProv = %x\n", hProv);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t ALG_ID Algid = %x\n", Algid);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTKEY* phKey = %x, *phKey = %s\n", phKey, "Cannot deref the key directly");
-    OutputDebugString(buf);
 
-    //fclose(fd);
+    // spdlog::debug("[CryptGenKey] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTPROV hProv = %x", hProv);
+    // spdlog::debug("\t ALG_ID Algid = %x", Algid);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
+    // spdlog::debug("\t HCRYPTKEY* phKey = %x, *phKey = %s", phKey, "Cannot deref the key directly");
+
     return Real_CryptGenKey(hProv, Algid, dwFlags | CRYPT_EXPORTABLE, phKey);
 }
 
 BOOL WINAPI Fake_CryptGenRandom(HCRYPTPROV hProv, DWORD dwLen, BYTE* pbBuffer) {
     OutputDebugString("Fake_CryptGenRandom loaded");
-    char buf[512];
-    sprintf_s(buf, "\t HCRYPTPROV hProv = %x\n", hProv);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwLen = %x\n", dwLen);
-    OutputDebugString(buf);
+    std::string mytime = CurrentTime();
 
-    sprintf_s(buf, "\t BYTE* pbBuffer = %x, *pbBuffer = OUTPUT, cannot deref\n", pbBuffer);
-    OutputDebugString(buf);
+    // spdlog::debug("[CryptGenRandom] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTPROV hProv = %x", hProv);
+    // spdlog::debug("\t DWORD dwLen = %x", dwLen);
+
+    // spdlog::debug("\t BYTE* pbBuffer = %x, *pbBuffer = OUTPUT, cannot deref", pbBuffer);
 
     BOOL ret = Real_CryptGenRandom(hProv, dwLen, pbBuffer);
 
-    sprintf_s(buf, "\t RandomData = ");
-    OutputDebugString(buf);
+    // spdlog::debug("\t RandomData = ");
     for (int i = 0 ; i < dwLen ; i++) {
-        sprintf_s(buf, "%02x",pbBuffer[i]);
-        OutputDebugString(buf);
+        // spdlog::debug("%02x",pbBuffer[i]);
     }
-    sprintf_s(buf, "\n");
-    OutputDebugString(buf);
+    // spdlog::debug("");
 
-    //fclose(fd);
     return ret;
 }
 
 BOOL WINAPI Fake_CryptImportKey(HCRYPTPROV hProv, BYTE* pbData, DWORD dwDataLen, HCRYPTKEY hPubKey,
   DWORD dwFlags, HCRYPTKEY* phKey) {
     OutputDebugString("Fake_CryptImportKey loaded");
-    char buf[512];
-    sprintf_s(buf, "\t HCRYPTPROV hProv = %x\n", hProv);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t BYTE* pbData = %x, *pbData = %s\n", pbData, "BROKEN");
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwDataLen = %x\n", dwDataLen);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTKEY hPubKey = %x\n", hPubKey);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTKEY* phKey = %x, *phKey = %s\n", phKey, "BROKEN");
-    OutputDebugString(buf);
 
-    //fclose(fd);
+    // spdlog::debug("[CryptImportKey] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTPROV hProv = %x", hProv);
+    // spdlog::debug("\t BYTE* pbData = %x, *pbData = %s", pbData, "BROKEN");
+    // spdlog::debug("\t DWORD dwDataLen = %x", dwDataLen);
+    // spdlog::debug("\t HCRYPTKEY hPubKey = %x", hPubKey);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
+    // spdlog::debug("\t HCRYPTKEY* phKey = %x, *phKey = %s", phKey, "BROKEN");
+
     return Real_CryptImportKey(hProv, pbData, dwDataLen, hPubKey, dwFlags|CRYPT_EXPORTABLE, phKey);
 }
 
 BOOL WINAPI Fake_CryptExportKey(HCRYPTKEY hKey, HCRYPTKEY hExpKey, DWORD dwBlobType, DWORD dwFlags,
   BYTE* pbData, DWORD* pdwDataLen) {
     OutputDebugString("Fake_CryptExportKey loaded");
-    char buf[512];
-    sprintf_s(buf, "\t HCRYPTKEY hKey = %x\n", hKey);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t HCRYPTKEY hExpKey = %x\n", hExpKey);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwBlobType = %x\n", dwBlobType);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD dwFlags = %x\n", dwFlags);
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t BYTE* pbData = %x, *pbData = %s\n", pbData, "BROKEN");
-    OutputDebugString(buf);
-    sprintf_s(buf, "\t DWORD* pdwDataLen = %x, *pdwDataLen = %d\n", pdwDataLen, *pdwDataLen);
-    OutputDebugString(buf);
-    //fclose(fd);
+    std::string mytime = CurrentTime();
+
+    // spdlog::debug("[CryptExportKey] %s", mytime.c_str());
+    // spdlog::debug("\t HCRYPTKEY hKey = %x", hKey);
+    // spdlog::debug("\t HCRYPTKEY hExpKey = %x", hExpKey);
+    // spdlog::debug("\t DWORD dwBlobType = %x", dwBlobType);
+    // spdlog::debug("\t DWORD dwFlags = %x", dwFlags);
+    // spdlog::debug("\t BYTE* pbData = %x, *pbData = %s", pbData, "BROKEN");
+    // spdlog::debug("\t DWORD* pdwDataLen = %x, *pdwDataLen = %d", pdwDataLen, *pdwDataLen);
 
     if (recursive == FALSE) {
         recursive = TRUE;
-        //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
         if (pbData == NULL) {
             // CryptEncrypt being used to get allocation size for cipher data
             if(!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, NULL, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] Exfil key length failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] Exfil key length failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] Exfil key length failed "), GetLastError());
+                // spdlog::debug("[FAIL] Exfil key length failed ");
             }
-            sprintf_s(buf, "\t ExfilKeyLen = %d\n", g_dwKeyBlobLen_Exfil);
-            OutputDebugString(buf);
+            // spdlog::debug("\t ExfilKeyLen = %d", g_dwKeyBlobLen_Exfil);
         }
         else if (g_dwKeyBlobLen_Exfil != NULL) {
             // CryptEncrypt is encrypting data, and was used to get the allocation size
             g_pbKeyBlob_Exfil = (BYTE*)malloc(g_dwKeyBlobLen_Exfil);
             if (!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, g_pbKeyBlob_Exfil, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] Exfil key data failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] Exfil key data failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] Exfil key data failed "), GetLastError());
+                // spdlog::debug("[FAIL] Exfil key data failed ");
             }
-            sprintf_s(buf, "\t ExfilKeyData = ");
-            OutputDebugString(buf);
+            // spdlog::debug("\t ExfilKeyData = ");
             for (int i = 0 ; i < g_dwKeyBlobLen_Exfil ; i++) {
-                sprintf_s(buf, "%02x",g_pbKeyBlob_Exfil[i]);
-                OutputDebugString(buf);
+                // spdlog::debug("%02x",g_pbKeyBlob_Exfil[i]);
             }
-            sprintf_s(buf, "\n");
-            OutputDebugString(buf);
+            // spdlog::debug("");
         }
         else {
             // CryptEncrypt is encrypting data, and was NOT called to get the alloca size
@@ -453,34 +335,28 @@ BOOL WINAPI Fake_CryptExportKey(HCRYPTKEY hKey, HCRYPTKEY hExpKey, DWORD dwBlobT
 
             // Get the size to allocate for the export blob
             if(!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, NULL, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] Exfil key length failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] Exfil key length failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] Exfil key length failed "), GetLastError());
+                // spdlog::debug("[FAIL] Exfil key length failed ");
             }
 
             g_pbKeyBlob_Exfil = (BYTE*)malloc(g_dwKeyBlobLen_Exfil);
 
             // Get the export blob
             if (!Real_CryptExportKey(hKey, NULL, PLAINTEXTKEYBLOB, 0, g_pbKeyBlob_Exfil, &g_dwKeyBlobLen_Exfil)){
-                MyHandleError(TEXT("[FAIL] Exfil key data failed \n"), GetLastError());
-                sprintf_s(buf, "[FAIL] Exfil key data failed \n");
-                OutputDebugString(buf);
+                MyHandleError(TEXT("[FAIL] Exfil key data failed "), GetLastError());
+                // spdlog::debug("[FAIL] Exfil key data failed ");
             }
 
             // Print the export blob
-            sprintf_s(buf, "\t ExfilKeyData = ");
-            OutputDebugString(buf);
+            // spdlog::debug("\t ExfilKeyData = ");
             for (int i = 0 ; i < g_dwKeyBlobLen_Exfil ; i++) {
-                sprintf_s(buf, "%02x", g_pbKeyBlob_Exfil[i]);
-                OutputDebugString(buf);
+                // spdlog::debug("%02x", g_pbKeyBlob_Exfil[i]);
             }
-            sprintf_s(buf, "\n");
-            OutputDebugString(buf);
+            // spdlog::debug("");
 
             //free(pbKeyBlob);
         }
-        //fclose(fd);
-        recursive = FALSE;
+            recursive = FALSE;
     }
 
     return Real_CryptExportKey(hKey, hExpKey, dwBlobType, dwFlags, pbData, pdwDataLen);
@@ -491,7 +367,7 @@ BOOL WINAPI Fake_CryptExportKey(HCRYPTKEY hKey, HCRYPTKEY hExpKey, DWORD dwBlobT
 NTSTATUS WINAPI Fake_BCryptEncrypt(BCRYPT_KEY_HANDLE hKey, PUCHAR pbInput, ULONG cbInput, VOID *pPaddingInfo,
   PUCHAR pbIV, ULONG cbIV, PUCHAR pbOutput, ULONG cbOutput, ULONG *pcbResult, ULONG dwFlags) {
     OutputDebugString("Fake_BCryptEncrypt loaded");
-    //fclose(fd);
+    // spdlog::debug("[BCryptEncrypt] %s", mytime.c_str());
 
     return Real_BCryptEncrypt(hKey, pbInput, cbInput, pPaddingInfo, pbIV, cbIV, pbOutput, cbOutput,
         pcbResult, dwFlags);
@@ -502,86 +378,60 @@ NTSTATUS WINAPI Fake_BCryptEncrypt(BCRYPT_KEY_HANDLE hKey, PUCHAR pbInput, ULONG
 /* File functions */
 HFILE WINAPI Fake_OpenFile(LPCSTR lpFileName, LPOFSTRUCT lpReOpenBuff, UINT uStyle) {
     OutputDebugString("Fake_OpenFile loaded");
-    char buf[512];
-    sprintf_s(buf, "LPCSTR lpFileName = %s",lpFileName);
-    OutputDebugString(buf);
-
+    USES_CONVERSION;
+    spdlog::debug("\t LPCSTR lpFileName = %s", lpFileName);
     return Real_OpenFile(lpFileName, lpReOpenBuff, uStyle);
+    spdlog::drop_all();
 }
 
 NTSTATUS WINAPI Fake_NtOpenFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
   PIO_STATUS_BLOCK IoStatusBlock, ULONG ShareAccess, ULONG OpenOptions) {
     OutputDebugString("Fake_NtOpenFile loaded");
+    //std::string mytime = CurrentTime();
+
     PUNICODE_STRING FileName = ObjectAttributes->ObjectName;
-    OutputDebugStringW(std::wstring(FileName->Buffer, FileName->Length / sizeof(WCHAR)).c_str()+4);
+    //spdlog::debug("\t PUNICODE_STRING lpFileName = %s", filename_s +4);
+
+    
+
   return Real_NtOpenFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 }
 
 HANDLE WINAPI Fake_CreateFile(LPCTSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
   LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition,DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
     OutputDebugString("Fake_CreateFile loaded");
-    char buf[512];
-    sprintf_s(buf, "LPCSTR lpFileName = %s", lpFileName);
-    OutputDebugString(buf);
-
+    spdlog::debug("\t LPCSTR lpFileName = %s", lpFileName);
+    spdlog::drop_all();
     return Real_CreateFile(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
+
+
 
 NTSTATUS WINAPI Fake_NtCreateFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, PIO_STATUS_BLOCK IoStatusBlock,
   PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess, ULONG CreateDisposition, ULONG CreateOptions, PVOID EaBuffer,
   ULONG EaLength) {
-    if (recursive2 == FALSE) {
-        recursive2 = TRUE;
-        //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
-        std::string mytime = CurrentTime();
-        //fprintf(fd, "[NtCreateFile] %s\n", mytime.c_str());
-        PUNICODE_STRING FileName = ObjectAttributes->ObjectName;
-        //fprintf(fd, "\t PUNICODE_STRING FileName = %wZ\n", FileName);
-        //fclose(fd);
-
-        if (Real_HookedSig == NULL) {
-            unsigned char* sig_address = search_memory(NEEDLE, NEEDLE_END, NEEDLE_SIZE);
-            if (sig_address != NULL) {
-                Real_HookedSig = (void (__thiscall*)(void*, const BYTE*, size_t, DWORD*))sig_address;
-                DetourTransactionBegin();
-                DetourUpdateThread(GetCurrentThread());
-                DetourAttach(&(PVOID&)Real_HookedSig, Fake_HookedSig);
-                DetourTransactionCommit();
-            }
-        }
-
-        if (Real_HookedSig != NULL) {
-            // ReadFile's job is done...
-            //DetourTransactionBegin();
-            //DetourUpdateThread(GetCurrentThread());
-            //DetourDetach(&(PVOID&)Real_NtReadFile, Fake_NtReadFile);
-            //DetourTransactionCommit();
-        }
-
-        recursive2 = FALSE;
-    }
+    OutputDebugString("Fake_NtCreateFile loaded");
     return Real_NtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes,
         ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 }
 
 /*
 BOOL WINAPI Fake_ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped) {
-    //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
+    FILE* *fd = fopen("C:\\CryptoHookLog.dl", "a");
     std::string mytime = CurrentTime();
-    //fprintf(fd, "[ReadFile] %s\n", mytime.c_str());
-    //fclose(fd);
+    // spdlog::debug("[ReadFile] %s", mytime.c_str());
 
     if (Real_HookedSig == NULL) {
         unsigned char* sig_address = search_memory(NEEDLE, NEEDLE_END, NEEDLE_SIZE);
-        //printf("[fake_readfile] Setting real_hookedsig\n");
+        //printf("[fake_readfile] Setting real_hookedsig");
         if (sig_address != NULL) {
             Real_HookedSig = (void (__thiscall*)(void*, const BYTE*, size_t, DWORD*))sig_address;
-            //printf("[fake_readfile] sig_address = [%08x]\n", sig_address);
-            //printf("[fake_readfile] Real_HookedSig = [%08x]\n", Real_HookedSig);
+            //printf("[fake_readfile] sig_address = [%08x]", sig_address);
+            //printf("[fake_readfile] Real_HookedSig = [%08x]", Real_HookedSig);
             DetourTransactionBegin();
             DetourUpdateThread(GetCurrentThread());
             DetourAttach(&(PVOID&)Real_HookedSig, Fake_HookedSig);
-            //printf("[fake_readfile2] Real_HookedSig = [%08x]\n", Real_HookedSig);
+            //printf("[fake_readfile2] Real_HookedSig = [%08x]", Real_HookedSig);
             DetourTransactionCommit();
         }
     }
@@ -600,22 +450,21 @@ BOOL WINAPI Fake_ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToR
 /*
 NTSTATUS WINAPI Fake_NtReadFile(HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
   PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, ULONG Length, PLARGE_INTEGER ByteOffset, PULONG Key) {
-    //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
+    FILE* *fd = fopen("C:\\CryptoHookLog.dl", "a");
     std::string mytime = CurrentTime();
-    //fprintf(fd, "[NtReadFile] %s\n", mytime.c_str());
-    //fclose(fd);
+    // spdlog::debug("[NtReadFile] %s", mytime.c_str());
 
     if (Real_HookedSig == NULL) {
         unsigned char* sig_address = search_memory(NEEDLE, NEEDLE_END, NEEDLE_SIZE);
-        //printf("[fake_readfile] Setting real_hookedsig\n");
+        //printf("[fake_readfile] Setting real_hookedsig");
         if (sig_address != NULL) {
             Real_HookedSig = (void (__thiscall*)(void*, const BYTE*, size_t, DWORD*))sig_address;
-            //printf("[fake_readfile] sig_address = [%08x]\n", sig_address);
-            //printf("[fake_readfile] Real_HookedSig = [%08x]\n", Real_HookedSig);
+            //printf("[fake_readfile] sig_address = [%08x]", sig_address);
+            //printf("[fake_readfile] Real_HookedSig = [%08x]", Real_HookedSig);
             DetourTransactionBegin();
             DetourUpdateThread(GetCurrentThread());
             DetourAttach(&(PVOID&)Real_HookedSig, Fake_HookedSig);
-            //printf("[fake_readfile2] Real_HookedSig = [%08x]\n", Real_HookedSig);
+            //printf("[fake_readfile2] Real_HookedSig = [%08x]", Real_HookedSig);
             DetourTransactionCommit();
         }
     }
@@ -632,25 +481,28 @@ NTSTATUS WINAPI Fake_NtReadFile(HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE
 }
 */
 VOID __fastcall Fake_HookedSig(void * This, void * throwaway, const BYTE* key, size_t length, DWORD* whatever) {
-    //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
-    //fprintf(fd, "\t CryptoPPKey = ");
+    spdlog::debug("\t CryptoPPKey = ");
     for (int i = 0 ; i < length ; i++) {
-        //fprintf(fd, "%02x",key[i]);
+        //spdlog::debug("%02x",key[i]);
     }
-    //fprintf(fd, "\n");
-    //fclose(fd);
+
     return Real_HookedSig(This, key, length, whatever);
 }
 
 INT APIENTRY DllMain(HMODULE hModule, DWORD Reason, LPVOID lpReserved) {
-    //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
+    auto key_logger = spdlog::basic_logger_mt<spdlog::async_factory>("key_logger", "C:\\basic.txt");
+    spdlog::set_default_logger(key_logger);
+    spdlog::set_level(spdlog::level::debug);
 
-    switch(Reason) {
+    switch(Reason){
     case DLL_PROCESS_ATTACH:
+        OutputDebugString("start dll load");
+        spdlog::debug("start dll load");
+
         DetourRestoreAfterWith(); // eugenek: not sure if this is necessary
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
-        OutputDebugString("transaction begin");
+
 
         DetourAttach(&(PVOID&)Real_CryptEncrypt, Fake_CryptEncrypt);
         DetourAttach(&(PVOID&)Real_CryptDecrypt, Fake_CryptDecrypt);
@@ -677,14 +529,13 @@ INT APIENTRY DllMain(HMODULE hModule, DWORD Reason, LPVOID lpReserved) {
         DetourAttach(&(PVOID&)Real_OpenFile, Fake_OpenFile);
         DetourAttach(&(PVOID&)Real_NtOpenFile, Fake_NtOpenFile);
         DetourAttach(&(PVOID&)Real_CreateFile, Fake_CreateFile);
-
-        //create memory leak
-        //DetourAttach(&(PVOID&)Real_NtCreateFile, Fake_NtCreateFile);
+        DetourAttach(&(PVOID&)Real_NtCreateFile, Fake_NtCreateFile);
 
         DetourAttach(&(PVOID&)Real_BCryptEncrypt, Fake_BCryptEncrypt);
 
         DetourTransactionCommit();
         OutputDebugString("commit done");
+        spdlog::debug("commit done");
         break;
 
     case DLL_PROCESS_DETACH:
@@ -716,7 +567,7 @@ INT APIENTRY DllMain(HMODULE hModule, DWORD Reason, LPVOID lpReserved) {
         DetourDetach(&(PVOID&)Real_OpenFile, Fake_OpenFile);
         DetourDetach(&(PVOID&)Real_NtOpenFile, Fake_NtOpenFile);
         DetourDetach(&(PVOID&)Real_CreateFile, Fake_CreateFile);
-        //DetourDetach(&(PVOID&)Real_NtCreateFile, Fake_NtCreateFile);
+        DetourDetach(&(PVOID&)Real_NtCreateFile, Fake_NtCreateFile);
 
         DetourDetach(&(PVOID&)Real_BCryptEncrypt, Fake_BCryptEncrypt);
 
@@ -730,7 +581,8 @@ INT APIENTRY DllMain(HMODULE hModule, DWORD Reason, LPVOID lpReserved) {
         break;
     }
 
-    //fclose(fd);
+    //spdlog::shutdown();
+    spdlog::drop_all();
     return TRUE;
 }
 
@@ -820,8 +672,8 @@ const std::string CurrentTime() {
 }
 
 void MyHandleError(LPTSTR psz, int nErrorNumber) {
-    _ftprintf(stderr, TEXT("An error occurred in the program. \n"));
-    _ftprintf(stderr, TEXT("%s\n"), psz);
-    _ftprintf(stderr, TEXT("Error number %x.\n"), nErrorNumber);
+    _ftprintf(stderr, TEXT("An error occurred in the program. "));
+    _ftprintf(stderr, TEXT("%s"), psz);
+    _ftprintf(stderr, TEXT("Error number %x."), nErrorNumber);
 }
 

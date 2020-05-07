@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <winioctl.h>
 
+
 /**
 * Saved function pointers.
 */
