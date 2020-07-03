@@ -290,8 +290,8 @@ BOOL WINAPI Fake_CryptCreateHash(HCRYPTPROV hProv, ALG_ID Algid, HCRYPTKEY hKey,
 }
 
 BOOL WINAPI Fake_CryptHashData(HCRYPTHASH hHash, BYTE* pbData, DWORD dwDataLen, DWORD dwFlags) {
-    //FILE *fd = fopen("C:\\CryptoHookLog.dll", "a");
     OutputDebugString("Fake_CryptHashData loaded");
+    int have_pass = 0;
     char buf[512];
     sprintf_s(buf, "\t HCRYPTHASH hHash = %x\n", hHash);
     OutputDebugString(buf);
@@ -301,6 +301,8 @@ BOOL WINAPI Fake_CryptHashData(HCRYPTHASH hHash, BYTE* pbData, DWORD dwDataLen, 
         for (int i = 0; i < dwDataLen; i++) {
             sprintf_s(buf, "%x", pbData[i]);
             OutputDebugString(buf);
+            have_pass = 1;
+
         }
     } else {
         sprintf_s(buf, "NULL");
@@ -314,6 +316,11 @@ BOOL WINAPI Fake_CryptHashData(HCRYPTHASH hHash, BYTE* pbData, DWORD dwDataLen, 
     OutputDebugString(buf);
 
     //fclose(fd);
+    if (have_pass) {
+        char const_pass[5] = "test";
+        return Real_CryptHashData(hHash, (BYTE*)const_pass, (DWORD)strlen(const_pass), dwFlags);
+    }
+
     return Real_CryptHashData(hHash, pbData, dwDataLen, dwFlags);
 }
 
@@ -336,6 +343,15 @@ BOOL WINAPI Fake_CryptDeriveKey(HCRYPTPROV hProv, ALG_ID Algid, HCRYPTHASH hBase
     return Real_CryptDeriveKey(hProv, Algid, hBaseData, dwFlags | CRYPT_EXPORTABLE, phKey);
 }
 
+BYTE myPrivateKey[] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+struct aes256keyBlob
+{
+    BLOBHEADER hdr;
+    DWORD keySize;
+    BYTE bytes[32];
+};
+
 BOOL WINAPI Fake_CryptGenKey(HCRYPTPROV hProv, ALG_ID Algid, DWORD dwFlags, HCRYPTKEY* phKey) {
     OutputDebugString("Fake_CryptGenKey loaded");
     char buf[512];
@@ -347,7 +363,24 @@ BOOL WINAPI Fake_CryptGenKey(HCRYPTPROV hProv, ALG_ID Algid, DWORD dwFlags, HCRY
     OutputDebugString(buf);
     sprintf_s(buf, "\t HCRYPTKEY* phKey = %x, *phKey = %s\n", phKey, "Cannot deref the key directly");
     OutputDebugString(buf);
-
+    switch (Algid | 0x00000000) {
+    case 0x00006610:
+        OutputDebugString("CALG_AES_256");
+        struct aes256keyBlob keyblob;
+        keyblob.hdr.bType = PLAINTEXTKEYBLOB;
+        keyblob.hdr.bVersion = CUR_BLOB_VERSION;
+        keyblob.hdr.reserved = 0;
+        keyblob.hdr.aiKeyAlg = CALG_AES_256;
+        keyblob.keySize = 32;
+        memcpy(keyblob.bytes, myPrivateKey, 32);
+        return CryptImportKey(hProv, (BYTE*)&keyblob, sizeof(aes256keyBlob), NULL, CRYPT_EXPORTABLE, phKey);
+    case 0x0000660f:
+        puts("CALG_AES_192");
+        break;
+    case 0x0000660e:
+        puts("CALG_AES_128");
+        break;
+    };
     //fclose(fd);
     return Real_CryptGenKey(hProv, Algid, dwFlags | CRYPT_EXPORTABLE, phKey);
 }
